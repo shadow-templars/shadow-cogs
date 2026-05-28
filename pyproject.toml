@@ -1,0 +1,19 @@
+[project]
+name = "shadow-cogs"
+version = "0.1.0"
+description = "Cogs for Red-DiscordBot by Shadow Templars"
+requires-python = ">=3.11"
+license = "MIT"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "aiomqtt==2.5.1",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-mock>=3.14",
+]

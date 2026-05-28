@@ -1,0 +1,19 @@
+{
+  "author": ["ktriponis", "Shadow Templars"],
+  "version": "0.1.0",
+  "name": "MqttRelay",
+  "short": "Relay Discord commands to MQTT",
+  "description": "Relay Discord commands to an MQTT broker. Generic, config-driven relay that publishes structured command payloads for external consumers.",
+  "install_msg": "MqttRelay installed! Use `[p]mqttrelay set` to configure your MQTT broker connection.",
+  "end_user_data_statement": "This cog does not store any end user data. It transmits Discord user IDs and message content to a configured MQTT broker.",
+  "disabled": false,
+  "hidden": false,
+  "type": "COG",
+  "permissions": [],
+  "required_cogs": {},
+  "requirements": ["aiomqtt==2.5.1"],
+  "tags": ["mqtt", "relay", "integration", "automation"],
+  "min_bot_version": "3.5.0",
+  "min_python_version": [3, 11, 0],
+  "max_bot_version": "0.0.0"
+}
