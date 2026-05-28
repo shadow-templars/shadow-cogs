@@ -1,0 +1,8 @@
+{
+  "author": ["STAR"],
+  "install_msg": "Thanks for installing Shadow Cogs! Use `[p]cog list shadow-cogs` to see available cogs.",
+  "name": "shadow-cogs",
+  "short": "Cogs for Red-DiscordBot by Shadow Templars.",
+  "description": "A collection of cogs for Red-DiscordBot including MQTT relay and automation tools.",
+  "tags": ["MQTT", "Relay", "Automation", "Integration"]
+}
