@@ -9,6 +9,7 @@ def _make_group_decorator(*args, **kwargs):
         func.command = lambda *a, **kw: lambda f: f
         func.group = lambda *a, **kw: _make_group_decorator(*a, **kw)
         return func
+
     return decorator
 
 

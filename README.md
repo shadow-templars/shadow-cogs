@@ -16,9 +16,9 @@ Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot) by Sha
 
 ## Available Cogs
 
-| Cog | Description |
-|-----|-------------|
-| [mqttrelay](mqttrelay/) | Relay Discord commands to an MQTT broker for external processing. |
+| Cog | Version | Description |
+|-----|---------|-------------|
+| [mqttrelay](mqttrelay/) | 0.1.0 | Relay Discord commands to an MQTT broker for external processing. |
 
 ## Requirements
 

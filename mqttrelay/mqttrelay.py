@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import aiomqtt
@@ -51,7 +51,7 @@ class MqttRelay(commands.Cog):
                 "userId": str(ctx.author.id),
                 "messageId": str(ctx.message.id),
                 "username": ctx.author.display_name,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         }
 
