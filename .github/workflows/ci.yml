@@ -10,9 +10,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8.1.0
 
       - name: Lint
         run: uv run --group dev ruff check .
@@ -21,4 +21,4 @@ jobs:
         run: uv run --group dev ruff format --check .
 
       - name: Test
-        run: uv run --group dev pytest
+        run: uv run --group dev pytest --cov
