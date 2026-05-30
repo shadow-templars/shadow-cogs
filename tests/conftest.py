@@ -47,23 +47,32 @@ def ctx():
 
 @pytest.fixture
 def cog(bot):
-    from mqttrelay.mqttrelay import MqttRelay
+    from mqttbridge.mqttbridge import MqttBridge
 
-    instance = MqttRelay.__new__(MqttRelay)
+    instance = MqttBridge.__new__(MqttBridge)
     instance.bot = bot
 
     mock_config = MagicMock()
-    config_values = {
+    global_values = {
         "broker_host": "localhost",
         "broker_port": 1883,
         "username": "relay-cog",
         "password": "secret",
+    }
+    guild_values = {
         "topic": "nexus/commands/inbound",
         "allowed_channels": [],
     }
-    for key, value in config_values.items():
+    for key, value in global_values.items():
         setattr(mock_config, key, AsyncMock(return_value=value))
         getattr(mock_config, key).set = AsyncMock()
+
+    mock_guild = MagicMock()
+    for key, value in guild_values.items():
+        setattr(mock_guild, key, AsyncMock(return_value=value))
+        getattr(mock_guild, key).set = AsyncMock()
+
+    mock_config.guild = MagicMock(return_value=mock_guild)
 
     instance.config = mock_config
     return instance

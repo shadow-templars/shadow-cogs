@@ -6,11 +6,11 @@ from uuid import uuid4
 import aiomqtt
 from redbot.core import Config, checks, commands
 
-log = logging.getLogger("red.shadow-cogs.mqttrelay")
+log = logging.getLogger("red.shadow-cogs.mqttbridge")
 
 
-class MqttRelay(commands.Cog):
-    """Relay Discord commands to an MQTT broker."""
+class MqttBridge(commands.Cog):
+    """Bridge Discord events and commands to an MQTT broker."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -20,21 +20,23 @@ class MqttRelay(commands.Cog):
             broker_port=1883,
             username="",
             password="",
-            topic="nexus/commands/inbound",
+        )
+        self.config.register_guild(
+            topic="",
             allowed_channels=[],
         )
 
-    @commands.group(name="mqttrelay")
-    async def mqttrelay(self, ctx):
-        """MQTT command relay."""
+    @commands.group(name="mqttbridge")
+    async def mqttbridge(self, ctx):
+        """MQTT bridge for Discord."""
 
-    @mqttrelay.command(name="relay")
+    @mqttbridge.command(name="relay")
     async def relay(self, ctx, *, message: str):
         """Relay a command via MQTT.
 
-        Create an alias for convenience: [p]alias add nexus mqttrelay relay
+        Create an alias for convenience: [p]alias add mqtt mqttbridge relay
         """
-        allowed = await self.config.allowed_channels()
+        allowed = await self.config.guild(ctx.guild).allowed_channels()
         if allowed and ctx.channel.id not in allowed:
             return
 
@@ -60,7 +62,11 @@ class MqttRelay(commands.Cog):
             port = await self.config.broker_port()
             username = await self.config.username()
             password = await self.config.password()
-            topic = await self.config.topic()
+            topic = await self.config.guild(ctx.guild).topic()
+
+            if not topic:
+                await ctx.send("No topic configured. Use `[p]mqttbridge set topic <topic>`.")
+                return
 
             async with aiomqtt.Client(
                 hostname=host,
@@ -75,19 +81,19 @@ class MqttRelay(commands.Cog):
             log.error("Failed to publish MQTT message: %s", e)
             await ctx.message.add_reaction("❌")
 
-    @mqttrelay.group(name="set")
+    @mqttbridge.group(name="set")
     @checks.is_owner()
-    async def mqttrelay_set(self, ctx):
-        """Configure the MQTT relay."""
+    async def mqttbridge_set(self, ctx):
+        """Configure the MQTT bridge."""
 
-    @mqttrelay_set.command(name="broker")
+    @mqttbridge_set.command(name="broker")
     async def set_broker(self, ctx, host: str, port: int = 1883):
         """Set the MQTT broker host and port."""
         await self.config.broker_host.set(host)
         await self.config.broker_port.set(port)
         await ctx.tick()
 
-    @mqttrelay_set.command(name="credentials")
+    @mqttbridge_set.command(name="credentials")
     async def set_credentials(self, ctx, username: str, password: str):
         """Set MQTT broker credentials. Use in DMs to avoid leaking secrets."""
         await self.config.username.set(username)
@@ -99,25 +105,25 @@ class MqttRelay(commands.Cog):
             except Exception:
                 await ctx.send("⚠️ Delete your message — it contains credentials.")
 
-    @mqttrelay_set.command(name="topic")
+    @mqttbridge_set.command(name="topic")
     async def set_topic(self, ctx, topic: str):
-        """Set the MQTT topic to publish to."""
-        await self.config.topic.set(topic)
+        """Set the MQTT topic for this server."""
+        await self.config.guild(ctx.guild).topic.set(topic)
         await ctx.tick()
 
-    @mqttrelay_set.command(name="channel")
+    @mqttbridge_set.command(name="channel")
     async def set_channel(self, ctx, action: str, channel_id: int = None):
         """Manage allowed channels. Usage: channel add/remove <id> or channel list."""
-        channels = await self.config.allowed_channels()
+        channels = await self.config.guild(ctx.guild).allowed_channels()
         if action == "add" and channel_id:
             if channel_id not in channels:
                 channels.append(channel_id)
-                await self.config.allowed_channels.set(channels)
+                await self.config.guild(ctx.guild).allowed_channels.set(channels)
             await ctx.tick()
         elif action == "remove" and channel_id:
             if channel_id in channels:
                 channels.remove(channel_id)
-                await self.config.allowed_channels.set(channels)
+                await self.config.guild(ctx.guild).allowed_channels.set(channels)
             await ctx.tick()
         elif action == "list":
             if channels:
