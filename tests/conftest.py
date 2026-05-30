@@ -19,6 +19,7 @@ _core.Config.get_conf = MagicMock(return_value=MagicMock())
 _core.commands.Cog = type("Cog", (), {"listener": staticmethod(lambda: lambda f: f)})
 _core.commands.group = _make_group_decorator
 _core.commands.command = lambda *a, **kw: lambda f: f
+_core.commands.guild_only = lambda: lambda f: f
 _core.checks.is_owner = lambda: lambda f: f
 
 sys.modules["redbot"] = MagicMock()

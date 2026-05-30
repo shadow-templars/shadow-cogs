@@ -137,18 +137,21 @@ class MqttBridge(commands.Cog):
                 await ctx.send("⚠️ Delete your message — it contains credentials.")
 
     @mqttbridge_set.command(name="topic")
+    @commands.guild_only()
     async def set_topic(self, ctx, topic: str):
         """Set the MQTT topic for commands in this server."""
         await self.config.guild(ctx.guild).topic.set(topic)
         await ctx.tick()
 
     @mqttbridge_set.command(name="events_topic")
+    @commands.guild_only()
     async def set_events_topic(self, ctx, topic: str):
         """Set the MQTT topic for events (join/leave) in this server."""
         await self.config.guild(ctx.guild).events_topic.set(topic)
         await ctx.tick()
 
     @mqttbridge_set.command(name="event")
+    @commands.guild_only()
     async def set_event(self, ctx, action: str, event_name: str = None):
         """Manage enabled events. Usage: event enable|disable <name> or event list.
 
@@ -175,6 +178,7 @@ class MqttBridge(commands.Cog):
             await ctx.send("Usage: `event enable|disable <name>` or `event list`")
 
     @mqttbridge_set.command(name="channel")
+    @commands.guild_only()
     async def set_channel(self, ctx, action: str):
         """Manage allowed channels. Run in the target channel.
 
