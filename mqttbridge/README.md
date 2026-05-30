@@ -17,10 +17,10 @@ Bridge Discord events and commands to an MQTT broker for external processing. Ge
 
 ```
 [p]mqttbridge set topic <topic>
-[p]mqttbridge set channel add <channel_id>
+[p]mqttbridge set channel enable
 ```
 
-Each server can publish to a different MQTT topic.
+Each server can publish to a different MQTT topic. Channels must be explicitly enabled — run the enable command in the target channel.
 
 ## Usage
 
@@ -40,11 +40,11 @@ Then use `[p]mqtt whoami` instead of `[p]mqttbridge relay whoami`.
 
 ## Channel Restrictions
 
-By default the relay works in all channels. To restrict it per server:
+The bridge is disabled by default. Enable it per channel by running the command in the target channel:
 
 ```
-[p]mqttbridge set channel add <channel_id>
-[p]mqttbridge set channel remove <channel_id>
+[p]mqttbridge set channel enable
+[p]mqttbridge set channel disable
 [p]mqttbridge set channel list
 ```
 

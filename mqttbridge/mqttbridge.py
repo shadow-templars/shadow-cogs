@@ -37,7 +37,7 @@ class MqttBridge(commands.Cog):
         Create an alias for convenience: [p]alias add mqtt mqttbridge relay
         """
         allowed = await self.config.guild(ctx.guild).allowed_channels()
-        if allowed and ctx.channel.id not in allowed:
+        if not allowed or ctx.channel.id not in allowed:
             return
 
         parts = message.split()
@@ -112,24 +112,27 @@ class MqttBridge(commands.Cog):
         await ctx.tick()
 
     @mqttbridge_set.command(name="channel")
-    async def set_channel(self, ctx, action: str, channel_id: int = None):
-        """Manage allowed channels. Usage: channel add/remove <id> or channel list."""
+    async def set_channel(self, ctx, action: str):
+        """Manage allowed channels. Run in the target channel.
+
+        Usage: channel enable | channel disable | channel list
+        """
         channels = await self.config.guild(ctx.guild).allowed_channels()
-        if action == "add" and channel_id:
-            if channel_id not in channels:
-                channels.append(channel_id)
+        if action == "enable":
+            if ctx.channel.id not in channels:
+                channels.append(ctx.channel.id)
                 await self.config.guild(ctx.guild).allowed_channels.set(channels)
             await ctx.tick()
-        elif action == "remove" and channel_id:
-            if channel_id in channels:
-                channels.remove(channel_id)
+        elif action == "disable":
+            if ctx.channel.id in channels:
+                channels.remove(ctx.channel.id)
                 await self.config.guild(ctx.guild).allowed_channels.set(channels)
             await ctx.tick()
         elif action == "list":
             if channels:
                 formatted = "\n".join(f"• <#{c}>" for c in channels)
-                await ctx.send(f"Allowed channels:\n{formatted}")
+                await ctx.send(f"Enabled channels:\n{formatted}")
             else:
-                await ctx.send("No channel restrictions — relay works in all channels.")
+                await ctx.send("No channels configured — bridge is disabled. Use `channel enable` to enable.")
         else:
-            await ctx.send("Usage: `channel add|remove|list [channel_id]`")
+            await ctx.send("Usage: `channel enable|disable|list`")

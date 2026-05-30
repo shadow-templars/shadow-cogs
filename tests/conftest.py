@@ -61,7 +61,7 @@ def cog(bot):
     }
     guild_values = {
         "topic": "nexus/commands/inbound",
-        "allowed_channels": [],
+        "allowed_channels": [987654321],
     }
     for key, value in global_values.items():
         setattr(mock_config, key, AsyncMock(return_value=value))

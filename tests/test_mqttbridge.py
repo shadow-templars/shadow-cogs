@@ -79,7 +79,7 @@ class TestRelay:
 
         mock_client.publish.assert_called_once()
 
-    async def test_allows_when_no_channel_restrictions(self, cog, ctx):
+    async def test_blocked_when_no_channels_configured(self, cog, ctx):
         cog.config.guild.return_value.allowed_channels = AsyncMock(return_value=[])
         mock_client = AsyncMock()
 
@@ -88,7 +88,7 @@ class TestRelay:
 
             await cog.relay(ctx, message="whoami")
 
-        mock_client.publish.assert_called_once()
+        mock_client.publish.assert_not_called()
 
     async def test_handles_command_with_no_args(self, cog, ctx):
         mock_client = AsyncMock()
@@ -145,28 +145,28 @@ class TestConfig:
         cog.config.guild.return_value.topic.set.assert_called_once_with("custom/topic")
         ctx.tick.assert_called_once()
 
-    async def test_channel_add(self, cog, ctx):
+    async def test_channel_enable(self, cog, ctx):
         cog.config.guild.return_value.allowed_channels = AsyncMock(return_value=[])
         cog.config.guild.return_value.allowed_channels.set = AsyncMock()
 
-        await cog.set_channel(ctx, action="add", channel_id=123)
+        await cog.set_channel(ctx, action="enable")
 
-        cog.config.guild.return_value.allowed_channels.set.assert_called_once_with([123])
+        cog.config.guild.return_value.allowed_channels.set.assert_called_once_with([ctx.channel.id])
         ctx.tick.assert_called_once()
 
-    async def test_channel_add_no_duplicates(self, cog, ctx):
-        cog.config.guild.return_value.allowed_channels = AsyncMock(return_value=[123])
+    async def test_channel_enable_no_duplicates(self, cog, ctx):
+        cog.config.guild.return_value.allowed_channels = AsyncMock(return_value=[ctx.channel.id])
         cog.config.guild.return_value.allowed_channels.set = AsyncMock()
 
-        await cog.set_channel(ctx, action="add", channel_id=123)
+        await cog.set_channel(ctx, action="enable")
 
         cog.config.guild.return_value.allowed_channels.set.assert_not_called()
 
-    async def test_channel_remove(self, cog, ctx):
-        cog.config.guild.return_value.allowed_channels = AsyncMock(return_value=[123, 456])
+    async def test_channel_disable(self, cog, ctx):
+        cog.config.guild.return_value.allowed_channels = AsyncMock(return_value=[ctx.channel.id, 456])
         cog.config.guild.return_value.allowed_channels.set = AsyncMock()
 
-        await cog.set_channel(ctx, action="remove", channel_id=123)
+        await cog.set_channel(ctx, action="disable")
 
         cog.config.guild.return_value.allowed_channels.set.assert_called_once_with([456])
         ctx.tick.assert_called_once()
@@ -174,7 +174,7 @@ class TestConfig:
     async def test_channel_list(self, cog, ctx):
         cog.config.guild.return_value.allowed_channels = AsyncMock(return_value=[123, 456])
 
-        await cog.set_channel(ctx, action="list", channel_id=None)
+        await cog.set_channel(ctx, action="list")
 
         ctx.send.assert_called_once()
         assert "123" in ctx.send.call_args[0][0]
@@ -182,7 +182,7 @@ class TestConfig:
     async def test_channel_list_empty(self, cog, ctx):
         cog.config.guild.return_value.allowed_channels = AsyncMock(return_value=[])
 
-        await cog.set_channel(ctx, action="list", channel_id=None)
+        await cog.set_channel(ctx, action="list")
 
         ctx.send.assert_called_once()
-        assert "No channel restrictions" in ctx.send.call_args[0][0]
+        assert "No channels configured" in ctx.send.call_args[0][0]
