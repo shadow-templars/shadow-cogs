@@ -163,7 +163,9 @@ class TestConfig:
         cog.config.guild.return_value.allowed_channels.set.assert_not_called()
 
     async def test_channel_disable(self, cog, ctx):
-        cog.config.guild.return_value.allowed_channels = AsyncMock(return_value=[ctx.channel.id, 456])
+        cog.config.guild.return_value.allowed_channels = AsyncMock(
+            return_value=[ctx.channel.id, 456]
+        )
         cog.config.guild.return_value.allowed_channels.set = AsyncMock()
 
         await cog.set_channel(ctx, action="disable")
@@ -186,3 +188,55 @@ class TestConfig:
 
         ctx.send.assert_called_once()
         assert "No channels configured" in ctx.send.call_args[0][0]
+
+
+class TestEvents:
+    async def test_member_join_publishes_event(self, cog, ctx):
+        cog.config.guild.return_value.events_topic = AsyncMock(return_value="nexus/events/inbound")
+        cog.config.guild.return_value.enabled_events = AsyncMock(return_value=["member_join"])
+        mock_client = AsyncMock()
+
+        member = AsyncMock()
+        member.guild = ctx.guild
+        member.id = 111222333
+        member.display_name = "NewMember"
+
+        with patch("mqttbridge.mqttbridge.aiomqtt.Client") as mock_aiomqtt:
+            mock_aiomqtt.return_value.__aenter__.return_value = mock_client
+
+            await cog.on_member_join(member)
+
+        payload = json.loads(mock_client.publish.call_args[0][1])
+        assert payload["version"] == 1
+        assert payload["event"] == "member_join"
+        assert payload["context"]["userId"] == "111222333"
+        assert payload["context"]["username"] == "NewMember"
+
+    async def test_member_join_skipped_when_no_events_topic(self, cog, ctx):
+        cog.config.guild.return_value.enabled_events = AsyncMock(return_value=["member_join"])
+        cog.config.guild.return_value.events_topic = AsyncMock(return_value="")
+        mock_client = AsyncMock()
+
+        member = AsyncMock()
+        member.guild = ctx.guild
+
+        with patch("mqttbridge.mqttbridge.aiomqtt.Client") as mock_aiomqtt:
+            mock_aiomqtt.return_value.__aenter__.return_value = mock_client
+
+            await cog.on_member_join(member)
+
+        mock_client.publish.assert_not_called()
+
+    async def test_member_join_skipped_when_event_not_enabled(self, cog, ctx):
+        cog.config.guild.return_value.enabled_events = AsyncMock(return_value=[])
+        mock_client = AsyncMock()
+
+        member = AsyncMock()
+        member.guild = ctx.guild
+
+        with patch("mqttbridge.mqttbridge.aiomqtt.Client") as mock_aiomqtt:
+            mock_aiomqtt.return_value.__aenter__.return_value = mock_client
+
+            await cog.on_member_join(member)
+
+        mock_client.publish.assert_not_called()

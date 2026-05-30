@@ -18,7 +18,7 @@ Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot) by Sha
 
 | Cog | Version | Description |
 |-----|---------|-------------|
-| [mqttbridge](mqttbridge/) | 0.3.0 | Bridge Discord events and commands to an MQTT broker. |
+| [mqttbridge](mqttbridge/) | 0.4.0 | Bridge Discord events and commands to an MQTT broker. |
 
 ## Requirements
 
