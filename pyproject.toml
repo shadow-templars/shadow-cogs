@@ -8,6 +8,8 @@ license = "MIT"
 [dependency-groups]
 dev = [
     "aiomqtt==2.5.1",
+    "httpx>=0.28.0",
+    "openai>=1.82.0",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.1.0",
@@ -21,7 +23,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [tool.coverage.run]
-source = ["mqttbridge"]
+source = ["aichat", "mqttbridge"]
 
 [tool.coverage.report]
 show_missing = true
