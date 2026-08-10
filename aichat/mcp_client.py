@@ -108,8 +108,13 @@ class MCPToolRouter:
         if params:
             body["params"] = params
 
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
+
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(url, json=body)
+            response = await client.post(url, json=body, headers=headers)
             response.raise_for_status()
 
             if response.headers.get("content-type", "").startswith("application/json"):
