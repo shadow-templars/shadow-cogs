@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -6,151 +7,106 @@ import httpx
 log = logging.getLogger("red.shadow-cogs.aichat")
 
 
-class MCPToolRouter:
-    """Manages connections to MCP servers and routes tool calls."""
+class MCPConnection:
+    """A persistent connection to a single MCP server via SSE."""
 
-    def __init__(self):
-        self._servers: dict[str, str] = {}
-        self._sessions: dict[str, str] = {}
-        self._tools: dict[str, dict] = {}
-        self._tool_server_map: dict[str, str] = {}
+    def __init__(self, name: str, url: str):
+        self.name = name
+        self.url = url
+        self.session_id: str | None = None
+        self.tools: list[dict] = []
+        self._client: httpx.AsyncClient | None = None
+        self._sse_task: asyncio.Task | None = None
+        self._connected = asyncio.Event()
 
-    async def connect(self, name: str, url: str):
-        """Connect to an MCP server and discover its tools."""
-        self._servers[name] = url
+    async def connect(self):
+        """Establish the SSE connection and discover tools."""
+        self._client = httpx.AsyncClient(timeout=60.0)
+        self._sse_task = asyncio.create_task(self._maintain_sse())
         try:
-            session_id = await self._establish_session(url)
-            self._sessions[name] = session_id
-            tools = await self._discover_tools(name)
-            for tool in tools:
-                tool_name = tool["function"]["name"]
-                self._tools[tool_name] = tool
-                self._tool_server_map[tool_name] = name
-            log.info("Connected to MCP server '%s': %d tools", name, len(tools))
-        except Exception:
-            log.exception("Failed to connect to MCP server '%s' at %s", name, url)
-
-    async def disconnect(self, name: str):
-        """Disconnect from an MCP server and remove its tools."""
-        tools_to_remove = [t for t, s in self._tool_server_map.items() if s == name]
-        for tool_name in tools_to_remove:
-            del self._tools[tool_name]
-            del self._tool_server_map[tool_name]
-        self._servers.pop(name, None)
-        self._sessions.pop(name, None)
+            await asyncio.wait_for(self._connected.wait(), timeout=10.0)
+            self.tools = await self._discover_tools()
+            log.info("Connected to MCP server '%s': %d tools", self.name, len(self.tools))
+        except TimeoutError:
+            log.error("Timeout connecting to MCP server '%s'", self.name)
+            await self.close()
+            raise
 
     async def close(self):
-        """Disconnect from all servers."""
-        self._servers.clear()
-        self._sessions.clear()
-        self._tools.clear()
-        self._tool_server_map.clear()
+        """Close the connection."""
+        if self._sse_task:
+            self._sse_task.cancel()
+            self._sse_task = None
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+        self.session_id = None
+        self._connected.clear()
 
-    async def get_openai_tools(self) -> list[dict]:
-        """Get all available tools in OpenAI function calling format."""
-        return list(self._tools.values())
+    async def call_tool(self, tool_name: str, arguments: dict) -> str:
+        """Call a tool and return the text result."""
+        if not self.session_id or not self._client:
+            raise RuntimeError(f"Not connected to {self.name}")
 
-    def get_tools_for_server(self, name: str) -> list[str]:
-        """Get tool names for a specific server."""
-        return [t for t, s in self._tool_server_map.items() if s == name]
+        base_url = self.url.rsplit("/sse", 1)[0]
+        messages_url = f"{base_url}/messages/?session_id={self.session_id}"
 
-    async def call_tool(self, tool_name: str, arguments: str) -> str:
-        """Call a tool on its MCP server and return the result."""
-        server_name = self._tool_server_map.get(tool_name)
-        if not server_name:
-            return f"Unknown tool: {tool_name}"
+        response = await self._client.post(
+            messages_url,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": tool_name, "arguments": arguments},
+            },
+        )
+        response.raise_for_status()
 
+        if response.headers.get("content-type", "").startswith("application/json"):
+            result = response.json().get("result", {})
+            content = result.get("content", [])
+            return "\n".join(c.get("text", "") for c in content if c.get("type") == "text")
+        return "No result"
+
+    async def _maintain_sse(self):
+        """Keep the SSE stream open to maintain the session."""
         try:
-            args = json.loads(arguments) if arguments else {}
-        except json.JSONDecodeError:
-            args = {}
-
-        try:
-            result = await self._send_request(
-                server_name,
-                "tools/call",
-                {
-                    "name": tool_name,
-                    "arguments": args,
-                },
-            )
-
-            if result:
-                content = result.get("content", [])
-                return "\n".join(c.get("text", "") for c in content if c.get("type") == "text")
-            return "No result"
-        except Exception as e:
-            log.exception("Failed to call tool '%s'", tool_name)
-            return f"Tool call failed: {e}"
-
-    async def _establish_session(self, url: str) -> str:
-        """Connect to the SSE endpoint to get a session ID."""
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            async with client.stream("GET", url) as response:
+            async with self._client.stream("GET", self.url) as response:
                 async for line in response.aiter_lines():
-                    if line.startswith("event: endpoint"):
-                        continue
-                    if line.startswith("data: "):
+                    if line.startswith("data: ") and "session_id=" in line:
                         endpoint = line[6:].strip()
-                        if "session_id=" in endpoint:
-                            session_id = endpoint.split("session_id=")[1].split("&")[0]
-                            return session_id
-        raise RuntimeError(f"Failed to establish session with {url}")
+                        self.session_id = endpoint.split("session_id=")[1].split("&")[0]
+                        self._connected.set()
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            log.exception("SSE connection to '%s' dropped", self.name)
+            self._connected.clear()
+            self.session_id = None
 
-    async def _send_request(self, server_name: str, method: str, params: dict) -> dict | None:
-        """Send a JSON-RPC request to an MCP server."""
-        url = self._servers[server_name]
-        session_id = self._sessions.get(server_name)
+    async def _discover_tools(self) -> list[dict]:
+        """Discover tools from the MCP server."""
+        base_url = self.url.rsplit("/sse", 1)[0]
+        messages_url = f"{base_url}/messages/?session_id={self.session_id}"
 
-        if not session_id:
-            session_id = await self._establish_session(url)
-            self._sessions[server_name] = session_id
+        response = await self._client.post(
+            messages_url,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/list",
+                "params": {},
+            },
+        )
+        response.raise_for_status()
 
-        base_url = url.rsplit("/sse", 1)[0]
-        messages_url = f"{base_url}/messages/?session_id={session_id}"
-
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                messages_url,
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": method,
-                    "params": params,
-                },
-            )
-
-            if response.status_code == 400 and "session_id" in response.text:
-                session_id = await self._establish_session(url)
-                self._sessions[server_name] = session_id
-                messages_url = f"{base_url}/messages/?session_id={session_id}"
-                response = await client.post(
-                    messages_url,
-                    json={
-                        "jsonrpc": "2.0",
-                        "id": 1,
-                        "method": method,
-                        "params": params,
-                    },
-                )
-
-            response.raise_for_status()
-
-            if response.headers.get("content-type", "").startswith("application/json"):
-                result = response.json()
-                return result.get("result")
-
-            return None
-
-    async def _discover_tools(self, server_name: str) -> list[dict]:
-        """Discover tools from an MCP server and convert to OpenAI format."""
-        result = await self._send_request(server_name, "tools/list", {})
-        tools = result.get("tools", []) if result else []
-        return [self._mcp_tool_to_openai(tool) for tool in tools]
+        if response.headers.get("content-type", "").startswith("application/json"):
+            result = response.json().get("result", {})
+            return [self._to_openai_format(t) for t in result.get("tools", [])]
+        return []
 
     @staticmethod
-    def _mcp_tool_to_openai(tool: dict) -> dict:
-        """Convert an MCP tool definition to OpenAI function calling format."""
+    def _to_openai_format(tool: dict) -> dict:
         return {
             "type": "function",
             "function": {
@@ -159,3 +115,66 @@ class MCPToolRouter:
                 "parameters": tool.get("inputSchema", {"type": "object", "properties": {}}),
             },
         }
+
+
+class MCPToolRouter:
+    """Manages connections to multiple MCP servers and routes tool calls."""
+
+    def __init__(self):
+        self._connections: dict[str, MCPConnection] = {}
+
+    async def connect(self, name: str, url: str):
+        """Connect to an MCP server."""
+        if name in self._connections:
+            await self._connections[name].close()
+
+        conn = MCPConnection(name, url)
+        try:
+            await conn.connect()
+            self._connections[name] = conn
+        except Exception:
+            log.exception("Failed to connect to MCP server '%s'", name)
+
+    async def disconnect(self, name: str):
+        """Disconnect from an MCP server."""
+        if name in self._connections:
+            await self._connections[name].close()
+            del self._connections[name]
+
+    async def close(self):
+        """Disconnect from all servers."""
+        for conn in self._connections.values():
+            await conn.close()
+        self._connections.clear()
+
+    async def get_openai_tools(self) -> list[dict]:
+        """Get all available tools in OpenAI function calling format."""
+        tools = []
+        for conn in self._connections.values():
+            tools.extend(conn.tools)
+        return tools
+
+    def get_tools_for_server(self, name: str) -> list[str]:
+        """Get tool names for a specific server."""
+        conn = self._connections.get(name)
+        if not conn:
+            return []
+        return [t["function"]["name"] for t in conn.tools]
+
+    async def call_tool(self, tool_name: str, arguments: str) -> str:
+        """Call a tool on its MCP server and return the result."""
+        try:
+            args = json.loads(arguments) if arguments else {}
+        except json.JSONDecodeError:
+            args = {}
+
+        for conn in self._connections.values():
+            tool_names = [t["function"]["name"] for t in conn.tools]
+            if tool_name in tool_names:
+                try:
+                    return await conn.call_tool(tool_name, args)
+                except Exception as e:
+                    log.exception("Failed to call tool '%s'", tool_name)
+                    return f"Tool call failed: {e}"
+
+        return f"Unknown tool: {tool_name}"

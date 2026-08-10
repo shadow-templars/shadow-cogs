@@ -27,6 +27,14 @@ class AiChat(commands.Cog):
             enabled_channels=[],
         )
         self.tool_router = MCPToolRouter()
+        self.bot.loop.create_task(self._connect_mcp_servers())
+
+    async def _connect_mcp_servers(self):
+        """Connect to all configured MCP servers on startup."""
+        await self.bot.wait_until_ready()
+        servers = await self.config.mcp_servers()
+        for name, url in servers.items():
+            await self.tool_router.connect(name, url)
 
     async def cog_unload(self):
         await self.tool_router.close()
