@@ -169,11 +169,11 @@ class AiChat(commands.Cog):
     # --- Commands ---
 
     @commands.group(name="aichat")
+    @checks.is_owner()
     async def aichat(self, ctx):
         """AI chat configuration."""
 
     @aichat.group(name="set")
-    @checks.is_owner()
     async def aichat_set(self, ctx):
         """Configure AI chat settings."""
 
@@ -235,7 +235,6 @@ class AiChat(commands.Cog):
             await ctx.send("Usage: `channel enable|disable|list`")
 
     @aichat.group(name="mcp")
-    @checks.is_owner()
     async def aichat_mcp(self, ctx):
         """Manage MCP server connections."""
 
