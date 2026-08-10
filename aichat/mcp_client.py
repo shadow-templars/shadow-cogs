@@ -11,6 +11,7 @@ class MCPToolRouter:
 
     def __init__(self):
         self._servers: dict[str, str] = {}
+        self._sessions: dict[str, str] = {}
         self._tools: dict[str, dict] = {}
         self._tool_server_map: dict[str, str] = {}
 
@@ -35,10 +36,12 @@ class MCPToolRouter:
             del self._tools[tool_name]
             del self._tool_server_map[tool_name]
         self._servers.pop(name, None)
+        self._sessions.pop(name, None)
 
     async def close(self):
         """Disconnect from all servers."""
         self._servers.clear()
+        self._sessions.clear()
         self._tools.clear()
         self._tool_server_map.clear()
 
@@ -113,16 +116,37 @@ class MCPToolRouter:
             "Accept": "application/json, text/event-stream",
         }
 
+        session_id = self._sessions.get(server_name)
+        if session_id:
+            headers["Mcp-Session-Id"] = session_id
+
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(url, json=body, headers=headers)
             response.raise_for_status()
 
-            if response.headers.get("content-type", "").startswith("application/json"):
+            # Store session ID from response
+            if "mcp-session-id" in response.headers:
+                self._sessions[server_name] = response.headers["mcp-session-id"]
+
+            content_type = response.headers.get("content-type", "")
+
+            # Handle JSON response directly
+            if content_type.startswith("application/json"):
                 data = response.json()
                 if "error" in data:
                     log.error("MCP error from '%s': %s", server_name, data["error"])
                     return None
                 return data.get("result")
+
+            # Handle SSE-formatted response (text/event-stream)
+            if content_type.startswith("text/event-stream"):
+                for line in response.text.splitlines():
+                    if line.startswith("data: "):
+                        data = json.loads(line[6:])
+                        if "error" in data:
+                            log.error("MCP error from '%s': %s", server_name, data["error"])
+                            return None
+                        return data.get("result")
 
         return None
 
