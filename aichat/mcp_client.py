@@ -26,10 +26,11 @@ class MCPConnection:
     async def connect(self):
         """Establish the SSE connection and discover tools."""
         self._client = httpx.AsyncClient(timeout=60.0)
-        self._post_client = httpx.AsyncClient(timeout=60.0)
+        self._post_client = httpx.AsyncClient(timeout=60.0, follow_redirects=True)
         self._sse_task = asyncio.create_task(self._maintain_sse())
         try:
             await asyncio.wait_for(self._connected.wait(), timeout=10.0)
+            await self._initialize()
             self.tools = await self._discover_tools()
             log.info("Connected to MCP server '%s': %d tools", self.name, len(self.tools))
         except TimeoutError:
@@ -152,6 +153,33 @@ class MCPConnection:
                             log.error("MCP error from '%s': %s", self.name, msg["error"])
             except json.JSONDecodeError:
                 pass
+
+    async def _initialize(self):
+        """Send MCP initialize handshake."""
+        result = await self._send_request(
+            "initialize",
+            {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "aichat", "version": "0.1.0"},
+            },
+        )
+        if result:
+            log.debug("MCP initialized with server: %s", result.get("serverInfo", {}))
+        await self._send_notification("notifications/initialized")
+
+    async def _send_notification(self, method: str):
+        """Send a JSON-RPC notification (no id, no response expected)."""
+        if not self.session_id or not self._post_client:
+            return
+
+        base_url = self.url.rsplit("/sse", 1)[0]
+        messages_url = f"{base_url}/messages/?session_id={self.session_id}"
+
+        await self._post_client.post(
+            messages_url,
+            json={"jsonrpc": "2.0", "method": method},
+        )
 
     async def _discover_tools(self) -> list[dict]:
         """Discover tools from the MCP server."""
