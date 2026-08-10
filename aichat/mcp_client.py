@@ -16,6 +16,7 @@ class MCPConnection:
         self.session_id: str | None = None
         self.tools: list[dict] = []
         self._client: httpx.AsyncClient | None = None
+        self._post_client: httpx.AsyncClient | None = None
         self._response_stream = None
         self._sse_task: asyncio.Task | None = None
         self._connected = asyncio.Event()
@@ -25,6 +26,7 @@ class MCPConnection:
     async def connect(self):
         """Establish the SSE connection and discover tools."""
         self._client = httpx.AsyncClient(timeout=60.0)
+        self._post_client = httpx.AsyncClient(timeout=60.0)
         self._sse_task = asyncio.create_task(self._maintain_sse())
         try:
             await asyncio.wait_for(self._connected.wait(), timeout=10.0)
@@ -46,6 +48,9 @@ class MCPConnection:
         if self._client:
             await self._client.aclose()
             self._client = None
+        if self._post_client:
+            await self._post_client.aclose()
+            self._post_client = None
         self.session_id = None
         self._connected.clear()
         for future in self._pending.values():
@@ -66,9 +71,9 @@ class MCPConnection:
             return "\n".join(c.get("text", "") for c in content if c.get("type") == "text")
         return "No result"
 
-    async def _send_request(self, method: str, params: dict) -> dict | None:
+    async def _send_request(self, method: str, params: dict | None) -> dict | None:
         """Send a JSON-RPC request and wait for the response via SSE."""
-        if not self.session_id or not self._client:
+        if not self.session_id or not self._post_client:
             raise RuntimeError(f"Not connected to {self.name}")
 
         self._request_id += 1
@@ -81,15 +86,15 @@ class MCPConnection:
         messages_url = f"{base_url}/messages/?session_id={self.session_id}"
 
         try:
-            response = await self._client.post(
-                messages_url,
-                json={
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "method": method,
-                    "params": params,
-                },
-            )
+            body = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": method,
+            }
+            if params:
+                body["params"] = params
+
+            response = await self._post_client.post(messages_url, json=body)
             response.raise_for_status()
 
             result = await asyncio.wait_for(future, timeout=30.0)
@@ -150,7 +155,7 @@ class MCPConnection:
 
     async def _discover_tools(self) -> list[dict]:
         """Discover tools from the MCP server."""
-        result = await self._send_request("tools/list", {})
+        result = await self._send_request("tools/list", None)
         tools = result.get("tools", []) if result else []
         return [self._to_openai_format(t) for t in tools]
 
