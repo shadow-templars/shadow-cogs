@@ -1,6 +1,6 @@
 {
   "author": ["ktriponis", "Shadow Templars"],
-  "version": "0.1.2",
+  "version": "0.1.3",
   "name": "AiChat",
   "short": "LLM conversational AI with MCP tool calling",
   "description": "LLM-powered conversational AI that responds when mentioned and can call tools on configured MCP servers via function calling. Supports configurable system prompts with context injection.",

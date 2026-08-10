@@ -16,8 +16,11 @@ class MCPConnection:
         self.session_id: str | None = None
         self.tools: list[dict] = []
         self._client: httpx.AsyncClient | None = None
+        self._response_stream = None
         self._sse_task: asyncio.Task | None = None
         self._connected = asyncio.Event()
+        self._pending: dict[int, asyncio.Future] = {}
+        self._request_id = 0
 
     async def connect(self):
         """Establish the SSE connection and discover tools."""
@@ -37,73 +40,119 @@ class MCPConnection:
         if self._sse_task:
             self._sse_task.cancel()
             self._sse_task = None
+        if self._response_stream:
+            await self._response_stream.aclose()
+            self._response_stream = None
         if self._client:
             await self._client.aclose()
             self._client = None
         self.session_id = None
         self._connected.clear()
+        for future in self._pending.values():
+            future.cancel()
+        self._pending.clear()
 
     async def call_tool(self, tool_name: str, arguments: dict) -> str:
         """Call a tool and return the text result."""
-        if not self.session_id or not self._client:
-            raise RuntimeError(f"Not connected to {self.name}")
-
-        base_url = self.url.rsplit("/sse", 1)[0]
-        messages_url = f"{base_url}/messages/?session_id={self.session_id}"
-
-        response = await self._client.post(
-            messages_url,
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/call",
-                "params": {"name": tool_name, "arguments": arguments},
+        result = await self._send_request(
+            "tools/call",
+            {
+                "name": tool_name,
+                "arguments": arguments,
             },
         )
-        response.raise_for_status()
-
-        if response.headers.get("content-type", "").startswith("application/json"):
-            result = response.json().get("result", {})
+        if result:
             content = result.get("content", [])
             return "\n".join(c.get("text", "") for c in content if c.get("type") == "text")
         return "No result"
 
-    async def _maintain_sse(self):
-        """Keep the SSE stream open to maintain the session."""
+    async def _send_request(self, method: str, params: dict) -> dict | None:
+        """Send a JSON-RPC request and wait for the response via SSE."""
+        if not self.session_id or not self._client:
+            raise RuntimeError(f"Not connected to {self.name}")
+
+        self._request_id += 1
+        request_id = self._request_id
+
+        future: asyncio.Future = asyncio.get_event_loop().create_future()
+        self._pending[request_id] = future
+
+        base_url = self.url.rsplit("/sse", 1)[0]
+        messages_url = f"{base_url}/messages/?session_id={self.session_id}"
+
         try:
-            async with self._client.stream("GET", self.url) as response:
-                async for line in response.aiter_lines():
-                    if line.startswith("data: ") and "session_id=" in line:
-                        endpoint = line[6:].strip()
-                        self.session_id = endpoint.split("session_id=")[1].split("&")[0]
-                        self._connected.set()
+            response = await self._client.post(
+                messages_url,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "method": method,
+                    "params": params,
+                },
+            )
+            response.raise_for_status()
+
+            result = await asyncio.wait_for(future, timeout=30.0)
+            return result
+        except TimeoutError:
+            log.error("Timeout waiting for response to %s on '%s'", method, self.name)
+            return None
+        finally:
+            self._pending.pop(request_id, None)
+
+    async def _maintain_sse(self):
+        """Keep the SSE stream open and dispatch responses."""
+        try:
+            self._response_stream = await self._client.send(
+                self._client.build_request("GET", self.url),
+                stream=True,
+            )
+            buffer = ""
+            event_type = ""
+
+            async for line in self._response_stream.aiter_lines():
+                if line.startswith("event: "):
+                    event_type = line[7:].strip()
+                elif line.startswith("data: "):
+                    buffer = line[6:]
+                elif line == "" and buffer:
+                    await self._handle_sse_event(event_type, buffer)
+                    buffer = ""
+                    event_type = ""
         except asyncio.CancelledError:
             pass
         except Exception:
             log.exception("SSE connection to '%s' dropped", self.name)
+        finally:
             self._connected.clear()
             self.session_id = None
 
+    async def _handle_sse_event(self, event_type: str, data: str):
+        """Handle an SSE event from the server."""
+        if event_type == "endpoint":
+            if "session_id=" in data:
+                self.session_id = data.split("session_id=")[1].split("&")[0]
+                self._connected.set()
+        elif event_type == "message":
+            try:
+                msg = json.loads(data)
+                request_id = msg.get("id")
+                if request_id and request_id in self._pending:
+                    future = self._pending[request_id]
+                    if not future.done():
+                        if "result" in msg:
+                            future.set_result(msg["result"])
+                        elif "error" in msg:
+                            future.set_result(None)
+                            log.error("MCP error from '%s': %s", self.name, msg["error"])
+            except json.JSONDecodeError:
+                pass
+
     async def _discover_tools(self) -> list[dict]:
         """Discover tools from the MCP server."""
-        base_url = self.url.rsplit("/sse", 1)[0]
-        messages_url = f"{base_url}/messages/?session_id={self.session_id}"
-
-        response = await self._client.post(
-            messages_url,
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list",
-                "params": {},
-            },
-        )
-        response.raise_for_status()
-
-        if response.headers.get("content-type", "").startswith("application/json"):
-            result = response.json().get("result", {})
-            return [self._to_openai_format(t) for t in result.get("tools", [])]
-        return []
+        result = await self._send_request("tools/list", {})
+        tools = result.get("tools", []) if result else []
+        return [self._to_openai_format(t) for t in tools]
 
     @staticmethod
     def _to_openai_format(tool: dict) -> dict:
