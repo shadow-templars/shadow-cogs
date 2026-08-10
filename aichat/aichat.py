@@ -77,10 +77,8 @@ class AiChat(commands.Cog):
 
         tools = await self.tool_router.get_openai_tools()
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": message.content},
-        ]
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(await self._build_conversation_history(message))
 
         client = openai.AsyncOpenAI(api_key=api_key)
 
@@ -139,6 +137,34 @@ class AiChat(commands.Cog):
         for key, value in replacements.items():
             prompt = prompt.replace(key, value)
         return prompt
+
+    async def _build_conversation_history(self, trigger_message) -> list[dict]:
+        """Fetch recent channel messages and build conversation context.
+
+        Looks back up to 10 messages within a 5-minute window before the
+        trigger message. Maps bot messages to assistant role, everything
+        else to user role with the author's name.
+        """
+        history = []
+        max_gap_seconds = 300
+
+        async for msg in trigger_message.channel.history(
+            limit=10, before=trigger_message, oldest_first=False
+        ):
+            gap = (trigger_message.created_at - msg.created_at).total_seconds()
+            if gap > max_gap_seconds:
+                break
+
+            if msg.author == self.bot.user:
+                history.append({"role": "assistant", "content": msg.content})
+            elif not msg.author.bot:
+                content = f"{msg.author.display_name}: {msg.content}" if msg.content else None
+                if content:
+                    history.append({"role": "user", "content": content})
+
+        history.reverse()
+        history.append({"role": "user", "content": trigger_message.content})
+        return history
 
     # --- Commands ---
 
