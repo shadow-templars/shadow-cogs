@@ -240,7 +240,7 @@ class AiChat(commands.Cog):
 
     @aichat_mcp.command(name="add")
     async def mcp_add(self, ctx, name: str, url: str):
-        """Add an MCP server. Example: [p]aichat mcp add my-server http://localhost:8000/sse"""
+        """Add an MCP server. Example: [p]aichat mcp add my-server http://localhost:8000/mcp"""
         servers = await self.config.mcp_servers()
         servers[name] = url
         await self.config.mcp_servers.set(servers)
