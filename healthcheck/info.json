@@ -1,0 +1,19 @@
+{
+  "author": ["ktriponis", "Shadow Templars"],
+  "version": "0.1.0",
+  "name": "HealthCheck",
+  "short": "HTTP liveness endpoint for external monitoring",
+  "description": "Exposes GET /health -> 200 {\"status\": \"ok\"} over HTTP so process managers and orchestrators (Kubernetes liveness probes, uptime checks) can confirm the bot process is alive. Dependency-free by design: it reflects only that the process is running. Binds to 127.0.0.1 by default; set the host to 0.0.0.0 for container/Kubernetes deployments.",
+  "install_msg": "HealthCheck installed! It serves GET /health on 127.0.0.1:8080 by default (loopback only). For a container or Kubernetes pod, run `[p]healthcheck bind 0.0.0.0 8080` then `[p]healthcheck restart` so the probe can reach it.",
+  "end_user_data_statement": "This cog does not store or transmit any end user data. It exposes only a static process-liveness status over HTTP.",
+  "disabled": false,
+  "hidden": false,
+  "type": "COG",
+  "permissions": [],
+  "required_cogs": {},
+  "requirements": [],
+  "tags": ["health", "liveness", "monitoring", "kubernetes", "ops"],
+  "min_bot_version": "3.5.0",
+  "min_python_version": [3, 11, 0],
+  "max_bot_version": "0.0.0"
+}

@@ -77,3 +77,18 @@ def cog(bot):
 
     instance.config = mock_config
     return instance
+
+
+@pytest.fixture
+def healthcheck_cog(bot):
+    from healthcheck.healthcheck import HealthCheck
+
+    instance = HealthCheck.__new__(HealthCheck)
+    instance.bot = bot
+    instance._runner = None
+
+    mock_config = MagicMock()
+    mock_config.host = AsyncMock(return_value="127.0.0.1")
+    mock_config.port = AsyncMock(return_value=8080)
+    instance.config = mock_config
+    return instance

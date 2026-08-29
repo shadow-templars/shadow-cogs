@@ -7,6 +7,7 @@ license = "MIT"
 
 [dependency-groups]
 dev = [
+    "aiohttp>=3.9",
     "aiomqtt==2.5.1",
     "httpx>=0.28.0",
     "openai>=1.60.0,<2.0.0",
@@ -23,7 +24,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [tool.coverage.run]
-source = ["aichat", "mqttbridge"]
+source = ["aichat", "healthcheck", "mqttbridge"]
 
 [tool.coverage.report]
 show_missing = true
