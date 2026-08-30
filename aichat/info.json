@@ -1,6 +1,6 @@
 {
   "author": ["ktriponis", "Shadow Templars"],
-  "version": "0.4.0",
+  "version": "0.4.1",
   "name": "AiChat",
   "short": "LLM conversational AI with MCP tool calling",
   "description": "LLM-powered conversational AI that responds when mentioned and can call tools on configured MCP servers via function calling. Supports configurable system prompts with context injection.",
@@ -11,7 +11,7 @@
   "type": "COG",
   "permissions": [],
   "required_cogs": {},
-  "requirements": ["openai>=1.60.0,<2.0.0", "httpx>=0.28.0"],
+  "requirements": ["openai>=1.60.0,<2.0.0", "pydantic>=2,<2.12", "httpx>=0.28.0"],
   "tags": ["ai", "llm", "mcp", "openai", "chat", "tools"],
   "min_bot_version": "3.5.0",
   "min_python_version": [3, 11, 0],

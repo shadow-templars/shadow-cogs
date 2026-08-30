@@ -92,4 +92,11 @@ configuration for the current server.
 - An OpenAI API key
 - Optional: one or more MCP servers to expose tools
 
-Python dependencies (installed with the cog): `openai`, `httpx`.
+Python dependencies (installed with the cog): `openai`, `pydantic`, `httpx`.
+
+> `pydantic` is pinned to `<2.12` on purpose. From pydantic 2.12 (pydantic-core
+> 2.39+), pydantic-core imports `Sentinel` and requires `typing-extensions>=4.14`,
+> which conflicts with the `typing-extensions==4.13.2` that Red 3.5.x pins in its
+> core environment — the cog fails to import. The cap keeps the transitive stack
+> compatible with the running Red. Revisit if Red core raises its
+> `typing-extensions` pin.
