@@ -6,14 +6,16 @@ you reply to one of its messages) and can call tools exposed by
 
 ## Setup
 
-### API key (global, set in DMs)
+### API key (global)
 
 ```
-[p]aichat set apikey <openai_api_key>
+[p]aichat set apikey
 ```
 
-> ⚠️ Run `set apikey` in DMs to avoid leaking the key. The message is
-> auto-deleted if sent in a server.
+Posts a **Set API token** button (bot-owner only) that opens a modal to enter the
+OpenAI key. The key is stored in Red's shared API token store under the `openai`
+service (`api_key`), so it can be shared with other cogs and set directly via
+core: `[p]set api openai api_key,<key>`.
 
 ### Model and prompt (global)
 

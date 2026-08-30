@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import openai
 from redbot.core import Config, checks, commands
+from redbot.core.utils.views import SetApiView
 
 from .mcp_client import MCPToolRouter
 
@@ -18,7 +19,6 @@ class AiChat(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=0x41494348415400)
         self.config.register_global(
-            openai_api_key="",
             model="gpt-4o-mini",
             system_prompt=DEFAULT_SYSTEM_PROMPT,
             mcp_servers={},
@@ -66,7 +66,8 @@ class AiChat(commands.Cog):
             await message.reply(response, mention_author=False)
 
     async def _generate_response(self, message) -> str | None:
-        api_key = await self.config.openai_api_key()
+        tokens = await self.bot.get_shared_api_tokens("openai")
+        api_key = tokens.get("api_key")
         if not api_key:
             log.warning("No OpenAI API key configured")
             return None
@@ -178,15 +179,11 @@ class AiChat(commands.Cog):
         """Configure AI chat settings."""
 
     @aichat_set.command(name="apikey")
-    async def set_apikey(self, ctx, api_key: str):
-        """Set the OpenAI API key. Use in DMs."""
-        await self.config.openai_api_key.set(api_key)
-        await ctx.tick()
-        if ctx.guild:
-            try:
-                await ctx.message.delete()
-            except Exception:
-                await ctx.send("⚠️ Delete your message — it contains credentials.")
+    async def set_apikey(self, ctx):
+        """Set the OpenAI API key."""
+        default_keys = {"api_key": ""}
+        view = SetApiView(default_service="openai", default_keys=default_keys)
+        await ctx.send("Click the button below to set the OpenAI API key.", view=view)
 
     @aichat_set.command(name="model")
     async def set_model(self, ctx, model: str):
