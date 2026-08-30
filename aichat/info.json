@@ -1,10 +1,10 @@
 {
   "author": ["ktriponis", "Shadow Templars"],
-  "version": "0.4.1",
+  "version": "0.4.2",
   "name": "AiChat",
   "short": "LLM conversational AI with MCP tool calling",
   "description": "LLM-powered conversational AI that responds when mentioned and can call tools on configured MCP servers via function calling. Supports configurable system prompts with context injection.",
-  "install_msg": "AiChat installed! Use `[p]aichat set apikey` to set your OpenAI key via a secure button, then `[p]aichat mcp add` to connect MCP servers.",
+  "install_msg": "AiChat installed! Use `[p]aichat set apikey <key>` in DMs to configure your OpenAI key, then `[p]aichat mcp add` to connect MCP servers.",
   "end_user_data_statement": "This cog sends user messages to OpenAI for response generation. No message history is stored persistently.",
   "disabled": false,
   "hidden": false,
