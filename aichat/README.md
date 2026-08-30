@@ -12,10 +12,13 @@ you reply to one of its messages) and can call tools exposed by
 [p]aichat set apikey
 ```
 
-Posts a **Set API token** button (bot-owner only) that opens a modal to enter the
-OpenAI key. The key is stored in Red's shared API token store under the `openai`
-service (`api_key`), so it can be shared with other cogs and set directly via
-core: `[p]set api openai api_key,<key>`.
+Posts a **Set API token** button (bot-owner only) that opens a modal for the
+`openai` service. The field is pre-filled with `api_key YOUR_API_KEY` — replace
+`YOUR_API_KEY` with your key, keeping the `api_key ` label (the modal expects one
+`<key> <value>` pair per line, so entering the value alone fails with "Missing a
+key or value"). The key is stored in Red's shared API token store under the
+`openai` service, so it can be shared with other cogs and set directly via core:
+`[p]set api openai api_key,<key>`.
 
 ### Model and prompt (global)
 
