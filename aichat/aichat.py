@@ -183,7 +183,7 @@ class AiChat(commands.Cog):
         """Set the OpenAI API key."""
         default_keys = {"api_key": ""}
         view = SetApiView(default_service="openai", default_keys=default_keys)
-        await ctx.send("Click the button below to set the OpenAI API key.", view=view)
+        await ctx.send("Use the button below to enter your OpenAI API key.", view=view)
 
     @aichat_set.command(name="model")
     async def set_model(self, ctx, model: str):
