@@ -19,7 +19,7 @@ Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot) by Sha
 | Cog | Version | Description |
 |-----|---------|-------------|
 | [aichat](aichat/) | 0.4.2 | LLM conversational AI with MCP tool calling. |
-| [healthcheck](healthcheck/) | 0.1.0 | HTTP liveness endpoint for external monitoring. |
+| [healthcheck](healthcheck/) | 0.1.0 | HTTP liveness endpoint for external monitoring. _(deprecated — see [uptimeresponder](https://cogdocs.vexcodes.com/en/latest/cogs/uptimeresponder.html))_ |
 | [mqttbridge](mqttbridge/) | 0.4.1 | Bridge Discord events and commands to an MQTT broker. |
 
 ## Requirements

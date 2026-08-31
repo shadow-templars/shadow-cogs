@@ -1,5 +1,16 @@
 # HealthCheck
 
+> **Deprecated / not actively maintained.** This works and we still run it, but for
+> a general-purpose liveness endpoint we now recommend
+> [Vexed's `uptimeresponder`](https://cogdocs.vexcodes.com/en/latest/cogs/uptimeresponder.html),
+> which is actively maintained and does the same job. Prefer that for new setups.
+>
+> Longer term we think a proper health mechanism fits best in Red core — a
+> process-level endpoint that exists before cogs load, and that cogs can register
+> their own readiness into. There's an open discussion at
+> [Cog-Creators/Red-DiscordBot#6802](https://github.com/Cog-Creators/Red-DiscordBot/issues/6802);
+> worth a read (and a reaction) if that resonates with how you run your bot.
+
 Exposes an HTTP **liveness** endpoint so process managers and orchestrators can
 confirm the bot process is alive.
 
